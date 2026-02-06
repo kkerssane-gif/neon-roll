@@ -1,0 +1,768 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>Neon Roll — Niveaux</title>
+  <style>
+    :root{
+      --bg1:#070a12; --bg2:#120622;
+      --glass: rgba(255,255,255,.10);
+      --stroke: rgba(255,255,255,.16);
+      --txt: #eaf2ff; --muted: rgba(234,242,255,.75);
+      --accent1:#22d3ee; --accent2:#fb7185;
+      --good:#34d399; --warn:#fbbf24; --bad:#fb7185;
+      --shadow: 0 18px 55px rgba(0,0,0,.45);
+    }
+    *{ box-sizing:border-box; }
+    html,body{ height:100%; margin:0; overflow:hidden; color:var(--txt);
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      background:
+        radial-gradient(1000px 600px at 20% 10%, rgba(34,211,238,.18), transparent 60%),
+        radial-gradient(900px 600px at 80% 15%, rgba(251,113,133,.16), transparent 55%),
+        linear-gradient(160deg, var(--bg1), var(--bg2));
+    }
+    #wrap{ position:relative; width:100%; height:100%; }
+    canvas{ display:block; width:100%; height:100%; }
+
+    .hud{
+      position:absolute; inset: 12px 12px auto 12px;
+      display:flex; gap:10px; align-items:flex-start; justify-content:space-between;
+      pointer-events:none;
+    }
+    .brand{
+      display:flex; gap:10px; align-items:center;
+      padding:10px 12px; border-radius:18px;
+      background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.06));
+      border:1px solid var(--stroke);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      pointer-events:auto;
+    }
+    .logo{
+      width:40px; height:40px; border-radius:14px;
+      background: radial-gradient(18px 18px at 30% 30%, rgba(255,255,255,.35), transparent 60%),
+                  linear-gradient(135deg, rgba(34,211,238,.95), rgba(251,113,133,.95));
+      box-shadow: 0 14px 40px rgba(0,0,0,.35);
+    }
+    .title{ display:grid; gap:2px; line-height:1.05; }
+    .title b{ font-size:15px; letter-spacing:.2px; }
+    .title span{ font-size:12px; color: var(--muted); }
+
+    .stats{
+      display:flex; gap:10px; align-items:stretch;
+      pointer-events:auto;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+    .pill{
+      min-width: 160px;
+      padding:10px 12px;
+      border-radius:18px;
+      background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.06));
+      border:1px solid var(--stroke);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      display:grid; gap:4px;
+    }
+    .pill .big{ font-weight:900; font-size:14px; letter-spacing:.2px; }
+    .pill .small{ font-size:12px; color: var(--muted); }
+    .pill .tag{
+      width:max-content; padding:3px 8px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.18);
+      background: rgba(0,0,0,.18);
+      font-size:11px; color: rgba(255,255,255,.9);
+    }
+
+    .controls{
+      position:absolute; inset:auto 12px 12px 12px;
+      display:flex; gap:10px; align-items:center; justify-content:space-between;
+      pointer-events:none;
+    }
+    .btnRow{ display:flex; gap:10px; pointer-events:auto; flex-wrap:wrap; justify-content:flex-end; }
+    button{
+      appearance:none; border:1px solid rgba(255,255,255,.16);
+      background: linear-gradient(180deg, rgba(255,255,255,.12), rgba(255,255,255,.06));
+      color: var(--txt); border-radius:16px;
+      padding:12px 14px; font-weight:900;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+      cursor:pointer;
+    }
+    button:active{ transform: translateY(1px) scale(.99); }
+    .primary{
+      border:none;
+      background: linear-gradient(135deg, rgba(34,211,238,.95), rgba(251,113,133,.95));
+    }
+    .ghost{ background: rgba(255,255,255,.06); }
+
+    .hint{
+      pointer-events:none;
+      padding:10px 12px; border-radius:16px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.22);
+      color: rgba(255,255,255,.88);
+      font-size:12px; line-height:1.35;
+      max-width: 420px;
+    }
+
+    .overlay{
+      position:absolute; inset:0;
+      display:none;
+      place-items:center;
+      background: radial-gradient(900px 600px at 50% 40%, rgba(255,255,255,.08), transparent 60%),
+                  rgba(0,0,0,.35);
+      backdrop-filter: blur(8px);
+    }
+    .panel{
+      width:min(720px, calc(100vw - 24px));
+      padding:18px;
+      border-radius:22px;
+      background: linear-gradient(180deg, rgba(255,255,255,.14), rgba(255,255,255,.06));
+      border:1px solid rgba(255,255,255,.18);
+      box-shadow: var(--shadow);
+      display:grid; gap:12px;
+      text-align:left;
+    }
+    .panel h1{ margin:0; font-size:18px; letter-spacing:.2px; }
+    .panel p{ margin:0; color: var(--muted); font-size:13px; line-height:1.4; }
+
+    .levels{
+      display:grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap:10px;
+      margin-top: 6px;
+    }
+    .lvl{
+      border-radius:16px;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(0,0,0,.18);
+      padding:10px 10px;
+      display:grid; gap:6px;
+      cursor:pointer;
+      user-select:none;
+    }
+    .lvl:hover{ filter: brightness(1.05); }
+    .lvl.locked{ opacity:.55; cursor:not-allowed; }
+    .lvlTop{ display:flex; align-items:center; justify-content:space-between; gap:8px; }
+    .chip{
+      font-size:11px; padding:3px 8px; border-radius:999px;
+      border:1px solid rgba(255,255,255,.18);
+      background: rgba(0,0,0,.18);
+      color: rgba(255,255,255,.9);
+      white-space:nowrap;
+    }
+    .chip.good{ border-color: rgba(52,211,153,.35); }
+    .chip.warn{ border-color: rgba(251,191,36,.35); }
+    .chip.bad{ border-color: rgba(251,113,133,.35); }
+    .lvl b{ font-size:13px; }
+    .lvl small{ color: var(--muted); font-size:12px; }
+
+    @media (max-width: 680px){
+      .levels{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    }
+    @media (max-width: 420px){
+      .levels{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .pill{ min-width: 150px; }
+    }
+  </style>
+</head>
+<body>
+<div id="wrap">
+  <div class="hud">
+    <div class="brand">
+      <div class="logo"></div>
+      <div class="title">
+        <b>Neon Roll</b>
+        <span>Niveaux • Parcours • Difficulté</span>
+      </div>
+    </div>
+
+    <div class="stats">
+      <div class="pill">
+        <div class="big">Niveau: <span id="levelLabel">—</span></div>
+        <div class="small">Progrès: <span id="progressLabel">0%</span></div>
+        <div class="tag" id="difficultyTag">Difficulté —</div>
+      </div>
+      <div class="pill">
+        <div class="big">Score: <span id="score">0</span></div>
+        <div class="small">Combo: <span id="combo">0</span></div>
+        <div class="tag">Best global: <span id="best">0</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="hint" id="hint">
+      Mobile : glisse à gauche/droite.<br/>
+      PC : ← → pour bouger, Espace pour pause.<br/>
+      Objectif : atteindre la ligne d’arrivée.
+    </div>
+    <div class="btnRow">
+      <button id="levelsBtn" class="ghost">☰ Niveaux</button>
+      <button id="pauseBtn">⏸ Pause</button>
+      <button id="restartBtn" class="primary">↻ Rejouer</button>
+    </div>
+  </div>
+
+  <div class="overlay" id="overlay">
+    <div class="panel" id="panel">
+      <h1 id="panelTitle">Niveaux</h1>
+      <p id="panelText">Choisis un niveau. Termine-le pour débloquer le suivant.</p>
+
+      <div class="levels" id="levelsGrid"></div>
+
+      <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:flex-end; margin-top:10px;">
+        <button id="closeOverlayBtn" class="ghost">Fermer</button>
+        <button id="playSelectedBtn" class="primary">▶ Jouer</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://unpkg.com/three@0.159.0/build/three.min.js"></script>
+<script>
+(() => {
+  if (!window.THREE) { alert("Three.js n'a pas pu se charger (offline ?)."); return; }
+
+  // ---------- Storage
+  const BEST_KEY = "neon_roll_best_levels_v1";
+  const UNLOCK_KEY = "neon_roll_unlocked_level_v1";
+  const getBest = () => Number(localStorage.getItem(BEST_KEY) || 0);
+  const setBest = (v) => localStorage.setItem(BEST_KEY, String(v));
+  const getUnlocked = () => Math.max(1, Number(localStorage.getItem(UNLOCK_KEY) || 1));
+  const setUnlocked = (v) => localStorage.setItem(UNLOCK_KEY, String(v));
+
+  // ---------- Levels (tu peux en ajouter facilement)
+  // distance: longueur du parcours (plus grand = plus long)
+  // baseSpeed: vitesse de base
+  // spawnEvery: fréquence d’apparition (plus petit = plus d’objets)
+  // obstacleChance: probabilité obstacle vs orb
+  // laneJitter: à partir de quel niveau on ajoute un petit "flottement" (sensation plus difficile)
+  const LEVELS = Array.from({length: 10}, (_, i) => {
+    const n = i + 1;
+    const distance = 420 + n * 120;              // plus long
+    const baseSpeed = 0.16 + n * 0.02;           // plus rapide
+    const spawnEvery = Math.max(10, 26 - n*1.6); // plus dense
+    const obstacleChance = Math.min(0.85, 0.45 + n*0.04); // plus d’obstacles
+    const laneJitter = Math.max(0, (n - 6) * 0.006);      // léger drift plus tard
+    const diff = n <= 3 ? "Facile" : n <= 7 ? "Moyen" : "Difficile";
+    return { n, distance, baseSpeed, spawnEvery, obstacleChance, laneJitter, diff };
+  });
+
+  // ---------- UI
+  const scoreEl = document.getElementById("score");
+  const comboEl = document.getElementById("combo");
+  const bestEl = document.getElementById("best");
+  const levelLabelEl = document.getElementById("levelLabel");
+  const progressLabelEl = document.getElementById("progressLabel");
+  const difficultyTagEl = document.getElementById("difficultyTag");
+
+  const overlayEl = document.getElementById("overlay");
+  const panelTitleEl = document.getElementById("panelTitle");
+  const panelTextEl = document.getElementById("panelText");
+  const levelsGridEl = document.getElementById("levelsGrid");
+
+  const levelsBtn = document.getElementById("levelsBtn");
+  const pauseBtn = document.getElementById("pauseBtn");
+  const restartBtn = document.getElementById("restartBtn");
+  const closeOverlayBtn = document.getElementById("closeOverlayBtn");
+  const playSelectedBtn = document.getElementById("playSelectedBtn");
+
+  bestEl.textContent = String(getBest());
+
+  // ---------- Three.js setup
+  const wrap = document.getElementById("wrap");
+  const renderer = new THREE.WebGLRenderer({ antialias:true, alpha:true });
+  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  renderer.shadowMap.enabled = true;
+  wrap.appendChild(renderer.domElement);
+
+  const scene = new THREE.Scene();
+  scene.fog = new THREE.FogExp2(0x070a12, 0.06);
+
+  const camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 220);
+  camera.position.set(0, 6.2, 10.5);
+
+  const hemi = new THREE.HemisphereLight(0x99ccff, 0x220022, 0.85);
+  scene.add(hemi);
+
+  const dir = new THREE.DirectionalLight(0xffffff, 0.95);
+  dir.position.set(6, 10, 6);
+  dir.castShadow = true;
+  dir.shadow.mapSize.set(1024,1024);
+  scene.add(dir);
+
+  // Materials
+  const matTrack = new THREE.MeshStandardMaterial({ color: 0x0b1020, metalness:0.25, roughness:0.35, emissive:0x050814, emissiveIntensity:1.2 });
+  const matEdge  = new THREE.MeshStandardMaterial({ color: 0x1b1f3a, metalness:0.6, roughness:0.25, emissive:0x001a2a, emissiveIntensity:2.0 });
+  const matBall  = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness:0.9, roughness:0.18, emissive:0x003344, emissiveIntensity:2.2 });
+  const matObstacle = new THREE.MeshStandardMaterial({ color: 0xff4d6d, metalness:0.35, roughness:0.3, emissive:0x330008, emissiveIntensity:2.0 });
+  const matOrb = new THREE.MeshStandardMaterial({ color: 0x22d3ee, metalness:0.7, roughness:0.2, emissive:0x005a66, emissiveIntensity:3.2 });
+  const matFinish = new THREE.MeshStandardMaterial({ color: 0xffffff, metalness:0.2, roughness:0.35, emissive:0x220033, emissiveIntensity:2.6, transparent:true, opacity:0.85 });
+
+  // World
+  const world = new THREE.Group();
+  scene.add(world);
+
+  // Track segments
+  const TRACK_W = 6.0;
+  const TRACK_LEN = 12.0;
+  const SEGMENTS = 11;
+
+  const trackGroup = new THREE.Group();
+  world.add(trackGroup);
+
+  function makeSegment(z){
+    const seg = new THREE.Group();
+    seg.position.z = z;
+
+    const base = new THREE.Mesh(new THREE.BoxGeometry(TRACK_W, 0.8, TRACK_LEN), matTrack);
+    base.receiveShadow = true;
+    base.position.y = -0.6;
+    seg.add(base);
+
+    const edgeL = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.6, TRACK_LEN), matEdge);
+    const edgeR = edgeL.clone();
+    edgeL.position.set(-TRACK_W/2 - 0.12, -0.25, 0);
+    edgeR.position.set( TRACK_W/2 + 0.12, -0.25, 0);
+    edgeL.castShadow = edgeR.castShadow = true;
+    seg.add(edgeL, edgeR);
+
+    return seg;
+  }
+
+  const segments = [];
+  for(let i=0;i<SEGMENTS;i++){
+    const seg = makeSegment(-i*TRACK_LEN);
+    segments.push(seg);
+    trackGroup.add(seg);
+  }
+
+  // Stars decor
+  const stars = new THREE.Group();
+  scene.add(stars);
+  const starGeom = new THREE.SphereGeometry(0.03, 8, 8);
+  const starMat = new THREE.MeshBasicMaterial({ color: 0xffffff });
+  for(let i=0;i<170;i++){
+    const s = new THREE.Mesh(starGeom, starMat);
+    s.position.set((Math.random()-0.5)*80, 6 + Math.random()*30, -Math.random()*160);
+    stars.add(s);
+  }
+
+  // Player
+  const ball = new THREE.Mesh(new THREE.SphereGeometry(0.55, 28, 28), matBall);
+  ball.castShadow = true;
+  ball.position.set(0, 0.4, 1.2);
+  world.add(ball);
+
+  // Finish gate (simple)
+  const finishGate = new THREE.Group();
+  const gateBar = new THREE.Mesh(new THREE.BoxGeometry(TRACK_W + 0.8, 0.25, 0.6), matFinish);
+  gateBar.position.set(0, 2.2, 0);
+  const gateL = new THREE.Mesh(new THREE.BoxGeometry(0.25, 2.2, 0.25), matFinish);
+  const gateR = gateL.clone();
+  gateL.position.set(-TRACK_W/2 - 0.2, 1.1, 0);
+  gateR.position.set( TRACK_W/2 + 0.2, 1.1, 0);
+  finishGate.add(gateBar, gateL, gateR);
+  finishGate.visible = false;
+  world.add(finishGate);
+
+  // Objects
+  const obstacles = [];
+  const orbs = [];
+
+  const LANES = [-2.2, 0, 2.2];
+  const randLaneX = () => LANES[(Math.random()*LANES.length)|0];
+
+  function spawnObstacle(z){
+    const box = new THREE.Mesh(new THREE.BoxGeometry(1.0, 1.0, 1.0), matObstacle);
+    box.castShadow = true;
+    box.position.set(randLaneX(), 0.2, z);
+    world.add(box);
+    obstacles.push(box);
+  }
+  function spawnOrb(z){
+    const orb = new THREE.Mesh(new THREE.SphereGeometry(0.32, 18, 18), matOrb);
+    orb.castShadow = true;
+    orb.position.set(randLaneX(), 0.55, z);
+    world.add(orb);
+    orbs.push(orb);
+  }
+
+  // ---------- Input
+  let targetX = 0;
+  let pointerDown = false;
+  let startX = 0;
+  let startTargetX = 0;
+  const clamp = (v,a,b) => Math.max(a, Math.min(b, v));
+
+  window.addEventListener("pointerdown", (e)=>{ pointerDown = true; startX = e.clientX; startTargetX = targetX; }, { passive:true });
+  window.addEventListener("pointermove", (e)=>{
+    if(!pointerDown) return;
+    const dx = (e.clientX - startX);
+    const nx = startTargetX + (dx / Math.max(240, window.innerWidth*0.35)) * (TRACK_W/2);
+    targetX = clamp(nx, -2.2, 2.2);
+  }, { passive:true });
+  window.addEventListener("pointerup", ()=>{ pointerDown = false; }, { passive:true });
+  window.addEventListener("pointercancel", ()=>{ pointerDown = false; }, { passive:true });
+
+  const keys = new Set();
+  window.addEventListener("keydown", (e)=>{ keys.add(e.code); if(e.code==="Space") togglePause(); });
+  window.addEventListener("keyup", (e)=>keys.delete(e.code));
+
+  // ---------- Game state
+  const clock = new THREE.Clock();
+  let running = false;
+  let paused = false;
+  let dead = false;
+
+  let selectedLevel = 1;
+  let current = LEVELS[0];
+
+  let baseSpeed = 0.18;
+  let score = 0;
+  let combo = 0;
+
+  // course progress
+  let distanceTraveled = 0;      // increases over time
+  let courseDistance = 600;      // per level
+  let nextSpawnAt = 0;           // distance-based spawns (stable difficulty)
+  let finishAt = 0;              // when distanceTraveled >= finishAt => win
+
+  function updateUI(){
+    scoreEl.textContent = String(Math.floor(score));
+    comboEl.textContent = String(combo);
+
+    levelLabelEl.textContent = String(selectedLevel);
+    const pct = courseDistance > 0 ? Math.min(100, Math.floor((distanceTraveled/courseDistance)*100)) : 0;
+    progressLabelEl.textContent = `${pct}%`;
+
+    const diff = current.diff;
+    difficultyTagEl.textContent = `Difficulté ${diff}`;
+  }
+
+  function clearObjects(){
+    for(const o of obstacles) world.remove(o);
+    for(const o of orbs) world.remove(o);
+    obstacles.length = 0;
+    orbs.length = 0;
+  }
+
+  function setOverlay(mode, extraText=""){
+    overlayEl.style.display = "grid";
+
+    if(mode === "levels"){
+      panelTitleEl.textContent = "Niveaux";
+      panelTextEl.textContent = "Choisis un niveau. Termine-le pour débloquer le suivant.";
+      playSelectedBtn.style.display = "";
+      buildLevelsGrid();
+      if(extraText) panelTextEl.textContent = extraText;
+    }
+    if(mode === "win"){
+      panelTitleEl.textContent = "Niveau terminé !";
+      panelTextEl.textContent = extraText || "Bien joué. Niveau suivant débloqué.";
+      playSelectedBtn.style.display = "";
+      buildLevelsGrid();
+    }
+    if(mode === "lose"){
+      panelTitleEl.textContent = "Perdu !";
+      panelTextEl.textContent = extraText || "Réessaie 🙂";
+      playSelectedBtn.style.display = "";
+      buildLevelsGrid();
+    }
+  }
+
+  function hideOverlay(){
+    overlayEl.style.display = "none";
+  }
+
+  function chipClass(diff){
+    if(diff === "Facile") return "good";
+    if(diff === "Moyen") return "warn";
+    return "bad";
+  }
+
+  function buildLevelsGrid(){
+    const unlocked = getUnlocked();
+    levelsGridEl.innerHTML = "";
+
+    for(const lv of LEVELS){
+      const isUnlocked = lv.n <= unlocked;
+      const div = document.createElement("div");
+      div.className = "lvl" + (isUnlocked ? "" : " locked");
+
+      const bestGlobal = getBest();
+      div.innerHTML = `
+        <div class="lvlTop">
+          <span class="chip ${chipClass(lv.diff)}">${lv.diff}</span>
+          <span class="chip">${isUnlocked ? "▶ Jouable" : "🔒"}</span>
+        </div>
+        <b>Niveau ${lv.n}</b>
+        <small>Distance: ${Math.round(lv.distance)} • Vitesse: ${(lv.baseSpeed).toFixed(2)}</small>
+      `;
+
+      div.addEventListener("click", ()=>{
+        if(!isUnlocked) return;
+        selectedLevel = lv.n;
+        current = lv;
+        // highlight selection quickly (simple)
+        [...levelsGridEl.children].forEach(c => c.style.outline = "none");
+        div.style.outline = "2px solid rgba(34,211,238,.65)";
+        div.style.outlineOffset = "2px";
+      });
+
+      levelsGridEl.appendChild(div);
+    }
+
+    // default selection = highest unlocked if none
+    if (!current || !LEVELS.find(l=>l.n===selectedLevel)) {
+      selectedLevel = Math.min(unlocked, LEVELS.length);
+      current = LEVELS[selectedLevel-1];
+    }
+    // add outline to current selection
+    const idxSel = selectedLevel - 1;
+    if (levelsGridEl.children[idxSel]) {
+      levelsGridEl.children[idxSel].style.outline = "2px solid rgba(34,211,238,.65)";
+      levelsGridEl.children[idxSel].style.outlineOffset = "2px";
+    }
+  }
+
+  function startLevel(n){
+    selectedLevel = n;
+    current = LEVELS[n-1];
+
+    dead = false;
+    paused = false;
+    running = true;
+
+    baseSpeed = current.baseSpeed;
+    score = 0;
+    combo = 0;
+
+    distanceTraveled = 0;
+    courseDistance = current.distance;
+    finishAt = courseDistance;
+
+    nextSpawnAt = 18; // first spawns after a short intro
+
+    targetX = 0;
+    ball.position.set(0, 0.4, 1.2);
+    ball.rotation.set(0,0,0);
+
+    clearObjects();
+
+    // reset track segments positions
+    for(let i=0;i<SEGMENTS;i++){
+      segments[i].position.z = -i * TRACK_LEN;
+    }
+
+    // place finish gate far ahead (in world coords it's negative z)
+    // Because we move objects forward, we can place finish at a negative z distance
+    finishGate.position.set(0, 0, -finishAt);
+    finishGate.visible = true;
+
+    hideOverlay();
+    updateUI();
+  }
+
+  function togglePause(){
+    if(!running || dead) return;
+    paused = !paused;
+    pauseBtn.textContent = paused ? "▶ Reprendre" : "⏸ Pause";
+  }
+
+  function winLevel(){
+    running = false;
+    dead = false;
+    paused = false;
+
+    // update best global
+    const best = getBest();
+    if(score > best) setBest(Math.floor(score));
+    bestEl.textContent = String(getBest());
+
+    // unlock next
+    const unlocked = getUnlocked();
+    const next = Math.min(LEVELS.length, selectedLevel + 1);
+    if(next > unlocked) setUnlocked(next);
+
+    setOverlay("win", `Niveau ${selectedLevel} terminé ! Score: ${Math.floor(score)} • Niveau ${Math.min(LEVELS.length, selectedLevel+1)} débloqué.`);
+  }
+
+  function loseLevel(){
+    running = false;
+    dead = true;
+    paused = false;
+
+    const best = getBest();
+    if(score > best) setBest(Math.floor(score));
+    bestEl.textContent = String(getBest());
+
+    setOverlay("lose", `Niveau ${selectedLevel} — Score: ${Math.floor(score)}. Retente ta chance.`);
+  }
+
+  function dist2(a,b){
+    const dx=a.x-b.x, dy=a.y-b.y, dz=a.z-b.z;
+    return dx*dx+dy*dy+dz*dz;
+  }
+
+  // Spawn logic based on distance traveled (predictable difficulty)
+  function spawnByDistance(){
+    while(distanceTraveled >= nextSpawnAt && distanceTraveled < finishAt){
+      // The spawn Z position is negative distance ahead
+      const z = -nextSpawnAt;
+
+      // obstacle or orb
+      if(Math.random() < current.obstacleChance) spawnObstacle(z);
+      else spawnOrb(z);
+
+      // sometimes spawn an extra obstacle as difficulty increases
+      if(current.n >= 5 && Math.random() < 0.25){
+        spawnObstacle(z - (2 + Math.random()*2));
+      }
+
+      // step to next spawn
+      nextSpawnAt += current.spawnEvery * (0.85 + Math.random()*0.35);
+    }
+  }
+
+  function animate(){
+    requestAnimationFrame(animate);
+    const dt = Math.min(0.05, clock.getDelta());
+
+    // camera follow
+    camera.position.x += (ball.position.x * 0.55 - camera.position.x) * 0.08;
+    camera.lookAt(ball.position.x * 0.6, 0.6, ball.position.z - 6);
+
+    stars.rotation.y += 0.003;
+
+    if(!running || paused){
+      renderer.render(scene, camera);
+      return;
+    }
+
+    // keyboard steering
+    if(keys.has("ArrowLeft")) targetX -= 0.06;
+    if(keys.has("ArrowRight")) targetX += 0.06;
+    targetX = clamp(targetX, -2.2, 2.2);
+
+    // lane jitter for later levels (adds difficulty without changing controls)
+    if(current.laneJitter > 0){
+      targetX += Math.sin(distanceTraveled * 0.03) * current.laneJitter;
+      targetX = clamp(targetX, -2.2, 2.2);
+    }
+
+    // speed: constant per level (you can add ramp if you want)
+    const forward = baseSpeed;
+
+    // Move track segments forward (endless illusion)
+    for(const seg of segments){
+      seg.position.z += forward;
+      if(seg.position.z > TRACK_LEN) seg.position.z -= TRACK_LEN * SEGMENTS;
+    }
+
+    // ball smoothing + roll
+    ball.position.x += (targetX - ball.position.x) * 0.18;
+    ball.rotation.x -= forward * 1.2;
+    ball.rotation.z = -ball.position.x * 0.08;
+
+    // Update progress
+    distanceTraveled += forward * 60 * dt; // scale to feel like distance
+    updateUI();
+
+    // spawn content
+    spawnByDistance();
+
+    // move obstacles/orbs and remove when passed
+    for(let i=obstacles.length-1;i>=0;i--){
+      const o = obstacles[i];
+      o.position.z += forward;
+      o.rotation.y += 0.02;
+      if(o.position.z > 10){
+        world.remove(o);
+        obstacles.splice(i,1);
+      }
+    }
+    for(let i=orbs.length-1;i>=0;i--){
+      const o = orbs[i];
+      o.position.z += forward;
+      o.position.y = 0.55 + Math.sin((distanceTraveled*0.04) + i)*0.06;
+      if(o.position.z > 10){
+        world.remove(o);
+        orbs.splice(i,1);
+      }
+    }
+
+    // collisions
+    const bp = ball.position;
+    const br = 0.55;
+
+    for(const o of obstacles){
+      if(dist2(bp, o.position) < (br + 0.65) ** 2){
+        loseLevel();
+        break;
+      }
+    }
+
+    for(let i=orbs.length-1;i>=0;i--){
+      const o = orbs[i];
+      if(dist2(bp, o.position) < (br + 0.35) ** 2){
+        world.remove(o);
+        orbs.splice(i,1);
+        combo += 1;
+        score += 80 + combo * 12;
+        try{ if(navigator.vibrate) navigator.vibrate(12); }catch{}
+      }
+    }
+
+    // passive score
+    score += 18 * dt * (1 + current.n*0.08);
+
+    // finish check
+    if(distanceTraveled >= finishAt){
+      winLevel();
+    }
+
+    renderer.render(scene, camera);
+  }
+
+  // ---------- Buttons / overlay
+  function openLevels(){
+    buildLevelsGrid();
+    setOverlay("levels");
+  }
+
+  levelsBtn.addEventListener("click", openLevels);
+  closeOverlayBtn.addEventListener("click", ()=> hideOverlay());
+  playSelectedBtn.addEventListener("click", ()=>{
+    const unlocked = getUnlocked();
+    if(selectedLevel > unlocked) selectedLevel = unlocked;
+    startLevel(selectedLevel);
+  });
+
+  pauseBtn.addEventListener("click", togglePause);
+  restartBtn.addEventListener("click", ()=> startLevel(selectedLevel));
+
+  window.addEventListener("resize", ()=>{
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // ---------- Init
+  bestEl.textContent = String(getBest());
+  // default selected level = highest unlocked
+  const unlocked = Math.min(LEVELS.length, getUnlocked());
+  selectedLevel = unlocked;
+  current = LEVELS[selectedLevel-1];
+
+  // show levels menu first
+  openLevels();
+  overlayEl.style.display = "grid";
+  animate();
+})();
+</script>
+</body>
+</html>
